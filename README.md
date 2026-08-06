@@ -1,8 +1,6 @@
-# Atom Matrix Four-Mode Firmware
+# PixelDeck
 
-Custom firmware for the [M5Stack Atom Matrix](https://docs.m5stack.com/en/core/ATOM%20Matrix): click the matrix button to cycle modes. Each click shows the destination mode number (1–4), then that mode runs.
-
-> Part of [m5stack-projects](../). Run all commands from this directory (`atom-matrix/`).
+Four-mode custom firmware for the [M5Stack Atom Matrix](https://docs.m5stack.com/en/core/ATOM%20Matrix): click the matrix button to cycle modes. Each click shows the destination mode number (1–4), then that mode runs.
 
 | # | Mode | What it does |
 |---|------|--------------|
@@ -33,23 +31,21 @@ LED drive capped at `MAX_BRIGHTNESS=20`. No Wi‑Fi credentials (scan-only). No 
 ## Flash without M5Burner
 
 ```bash
-cd atom-matrix
 pio device list          # M5stack → /dev/cu.usbserial-XXXXXXXX
 pio run -t upload --upload-port /dev/cu.usbserial-XXXXXXXX
 ```
 
 Prebuilt merged image (flash at `0x0`):
 
-`atom-matrix/firmware/atom_matrix_tri_mode_1.0.0.bin`
+`firmware/pixeldeck-1.0.0.bin`
 
 ---
 
 ## Build
 
 ```bash
-cd atom-matrix
 c++ -std=c++17 -I src -DMAX_BRIGHTNESS=20 test/test_wifi_style.cpp -o /tmp/wifi_style_check && /tmp/wifi_style_check
-pio run -t firmware    # → firmware/atom_matrix_tri_mode_1.0.0.bin
+pio run -t firmware    # → firmware/pixeldeck-1.0.0.bin
 ```
 
 ## Notes
