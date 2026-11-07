@@ -8,14 +8,14 @@ firmware_dir = env.GetProjectOption("custom_firmware_dir")
 if not os.path.exists(firmware_dir):
     os.makedirs(firmware_dir)
 
-firmware_bin = "%s_%s%s" % (firmware_name, firmware_version, firmware_suffix)
+firmware_bin = "%s-%s%s" % (firmware_name, firmware_version, firmware_suffix)
 firmware_path = os.path.join(firmware_dir, firmware_bin)
 
 app_bin = os.path.join("$BUILD_DIR", "${PROGNAME}%s" % firmware_suffix)
 
 env.AddCustomTarget(
     name="firmware",
-    dependencies=["buildfs"],
+    dependencies=[app_bin],
     actions=[
         '"$PYTHONEXE" "$UPLOADER" --chip esp32 merge_bin '
         "-o %s %s $ESP32_APP_OFFSET %s"
@@ -27,5 +27,5 @@ env.AddCustomTarget(
             app_bin,
         )
     ],
-    title="Generate User Custom",
+    title="Merged flash image",
 )

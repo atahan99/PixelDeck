@@ -1,4 +1,5 @@
-// Host self-check for wifi_style mapping. Run: c++ -std=c++17 -I src -DMAX_BRIGHTNESS=20 test/test_wifi_style.cpp -o /tmp/wifi_style_check && /tmp/wifi_style_check
+// Host self-check for wifi_style mapping.
+// Run: c++ -std=c++17 -Wall -Wextra -I src test/test_wifi_style.cpp -o /tmp/wifi_style_check && /tmp/wifi_style_check
 #include "wifi_style.h"
 
 #include <cassert>
@@ -9,23 +10,26 @@ int main() {
   assert(encryptionToColor(kAuthWep) == 0xFF6600u);
   assert(encryptionToColor(kAuthWpa) == 0xFFCC00u);
   assert(encryptionToColor(kAuthWpa2) == 0x00FF00u);
+  assert(encryptionToColor(kAuthWpa2Enterprise) == 0x00FF00u);
   assert(encryptionToColor(kAuthWpa3) == 0x00CCFFu);
+  assert(encryptionToColor(kAuthWpa3Ent192) == 0x00CCFFu);
+  assert(encryptionToColor(kAuthWapi) == 0x880088u);
   assert(encryptionToColor(99) == 0x880088u);
 
-  assert(rssiToBrightness(-100) == 4);
-  assert(rssiToBrightness(-30) == MAX_BRIGHTNESS);
-  assert(rssiToBrightness(-120) == 4);
-  assert(rssiToBrightness(-10) == MAX_BRIGHTNESS);
+  assert(rssiToLevel(-120) == 100);
+  assert(rssiToLevel(-100) == 100);
+  assert(rssiToLevel(-30) == 255);
+  assert(rssiToLevel(-10) == 255);
+  const uint8_t mid = rssiToLevel(-65);
+  assert(mid > 100 && mid < 255);
+  assert(rssiToLevel(-50) > rssiToLevel(-80));
 
-  const uint8_t mid = rssiToBrightness(-65);
-  assert(mid > 4 && mid < MAX_BRIGHTNESS);
-
-  const uint32_t styled = styleForNetwork(kAuthOpen, -30);
-  assert(((styled >> 16) & 0xFF) > 0);
-  assert((styled & 0xFF) == 0);
-
-  const uint32_t weak = styleForNetwork(kAuthOpen, -100);
-  assert(((weak >> 16) & 0xFF) < ((styled >> 16) & 0xFF));
+  assert(scaleRgb(0xFF0000, 255) == 0xFF0000u);
+  assert(scaleRgb(0xFF0000, 0) == 0u);
+  const uint32_t strong = scaleRgb(encryptionToColor(kAuthOpen), rssiToLevel(-30));
+  const uint32_t weak = scaleRgb(encryptionToColor(kAuthOpen), rssiToLevel(-100));
+  assert((strong & 0xFFFF) == 0 && (weak & 0xFFFF) == 0);
+  assert((weak >> 16) > 0 && (weak >> 16) < (strong >> 16));
 
   std::puts("wifi_style self-check OK");
   return 0;

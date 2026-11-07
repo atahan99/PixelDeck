@@ -2,11 +2,8 @@
 
 #include <stdint.h>
 
-#ifndef MAX_BRIGHTNESS
-#define MAX_BRIGHTNESS 20
-#endif
-
-// Arduino ESP32 wifi_auth_mode_t values (avoid pulling WiFi.h into host checks).
+// Arduino ESP32 wifi_auth_mode_t values (avoid pulling WiFi.h into host checks;
+// main.cpp static_asserts they match).
 enum WifiAuthKind : int {
   kAuthOpen = 0,
   kAuthWep = 1,
@@ -17,9 +14,10 @@ enum WifiAuthKind : int {
   kAuthWpa3 = 6,
   kAuthWpa2Wpa3 = 7,
   kAuthWapi = 8,
+  kAuthWpa3Ent192 = 9,
 };
 
-// Risk-coded palette as 0xRRGGBB (full channel; scale with brightness later).
+// Risk-coded palette as 0xRRGGBB (full channel; scale with rssiToLevel later).
 inline uint32_t encryptionToColor(int authMode) {
   switch (authMode) {
     case kAuthOpen:
@@ -34,46 +32,30 @@ inline uint32_t encryptionToColor(int authMode) {
       return 0x00FF00;  // green
     case kAuthWpa3:
     case kAuthWpa2Wpa3:
+    case kAuthWpa3Ent192:
       return 0x00CCFF;  // cyan/blue
     default:
       return 0x880088;  // dim magenta — unknown
   }
 }
 
-// Map RSSI (~-100..-30 dBm) into a safe LED brightness band.
-inline uint8_t rssiToBrightness(int rssi) {
+// Map RSSI (-100..-30 dBm) to a per-channel level 100..255. The floor keeps weak
+// APs visible after the strip's global MAX_BRIGHTNESS cap.
+inline uint8_t rssiToLevel(int rssi) {
   constexpr int kRssiMin = -100;
   constexpr int kRssiMax = -30;
-  constexpr int kBriMin = 4;
-  constexpr int kBriMax = MAX_BRIGHTNESS;
-
-  if (rssi <= kRssiMin) {
-    return static_cast<uint8_t>(kBriMin);
-  }
-  if (rssi >= kRssiMax) {
-    return static_cast<uint8_t>(kBriMax);
-  }
-
-  const int span = kRssiMax - kRssiMin;
-  const int bri =
-      kBriMin + ((rssi - kRssiMin) * (kBriMax - kBriMin) + span / 2) / span;
-  if (bri < kBriMin) {
-    return static_cast<uint8_t>(kBriMin);
-  }
-  if (bri > kBriMax) {
-    return static_cast<uint8_t>(kBriMax);
-  }
-  return static_cast<uint8_t>(bri);
+  constexpr int kLevelMin = 100;
+  constexpr int kLevelMax = 255;
+  if (rssi <= kRssiMin) return kLevelMin;
+  if (rssi >= kRssiMax) return kLevelMax;
+  return static_cast<uint8_t>(kLevelMin + (rssi - kRssiMin) * (kLevelMax - kLevelMin) /
+                                              (kRssiMax - kRssiMin));
 }
 
-inline uint32_t scaleRgb(uint32_t rgb, uint8_t bri) {
-  // bri is 0..MAX_BRIGHTNESS; keep LEDs well under full drive.
-  const uint8_t r = static_cast<uint8_t>(((rgb >> 16) & 0xFF) * bri / 255);
-  const uint8_t g = static_cast<uint8_t>(((rgb >> 8) & 0xFF) * bri / 255);
-  const uint8_t b = static_cast<uint8_t>((rgb & 0xFF) * bri / 255);
-  return (static_cast<uint32_t>(r) << 16) | (static_cast<uint32_t>(g) << 8) | b;
-}
-
-inline uint32_t styleForNetwork(int authMode, int rssi) {
-  return scaleRgb(encryptionToColor(authMode), rssiToBrightness(rssi));
+// Scale each channel of 0xRRGGBB by level/255 (level 0..255).
+inline uint32_t scaleRgb(uint32_t rgb, uint8_t level) {
+  const uint32_t r = ((rgb >> 16) & 0xFF) * level / 255;
+  const uint32_t g = ((rgb >> 8) & 0xFF) * level / 255;
+  const uint32_t b = (rgb & 0xFF) * level / 255;
+  return (r << 16) | (g << 8) | b;
 }
