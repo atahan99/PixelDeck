@@ -1,0 +1,74 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Host test (wifi_style)
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -I src test/test_wifi_style.cpp -o wifi_style_check
+          ./wifi_style_check
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Cache the PlatformIO toolchain + framework; keyed on platformio.ini so a
+      # dependency bump invalidates it.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            .pio
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build merged flash image
+        run: pio run -t firmware
+
+      - name: Checksum
+        working-directory: firmware
+        run: sha256sum pixeldeck-*.bin > SHA256SUMS && cat SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pixeldeck-firmware
+          path: firmware/
+
+  release:
+    needs: firmware
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # only this job can create the Release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches custom_firmware_version
+        run: grep -qx "custom_firmware_version = ${GITHUB_REF_NAME#v}" platformio.ini
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pixeldeck-firmware
+          path: firmware
+
+      # Pinned to a commit: this third-party step holds a write token.
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          files: |
+            firmware/pixeldeck-*.bin
+            firmware/SHA256SUMS
